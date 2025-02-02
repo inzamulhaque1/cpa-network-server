@@ -1,7 +1,7 @@
 const express = require("express");
 require("dotenv").config();
 const cors = require("cors");
-const { MongoClient, ServerApiVersion } = require('mongodb');
+const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
 const app = express();
 
 
@@ -41,21 +41,88 @@ async function run() {
     // await client.connect();
 
     const usersCollection = client.db("CpaNetwork").collection("users")
+
+    // ! =================  USER  ================= !//
+
     // Get All Users
     app.get('/users', async (req, res) => {
       const result = await usersCollection.find().toArray()
       res.send(result)
     })
 
+    // Backend: Get User by Email
+    app.get('/users/email/:email', async (req, res) => {
+      const { email } = req.params;
+      const user = await usersCollection.findOne({ email });
+
+      if (user) {
+        return res.send(user);
+      }
+      res.status(404).send({ error: "User not found" });
+    });
+
     // Register User
+
     app.post("/users", async (req, res) => {
-      const { firstName, lastName, email, image, role, activeStatus, uid, address, city, country, state, zip, skype, traffic, terms } = req.body;
-      console.log(email);
-      const user = { firstName, lastName, email, image, role: role || 'user', activeStatus: activeStatus || 'pending', uid, address, city, country: country.value, state, zip, skype, traffic, terms };
+      const {
+        firstName,
+        lastName,
+        email,
+        image,
+        role,
+        activeStatus,
+        uid,
+        address,
+        city,
+        country,
+        state,
+        zip,
+        skype,
+        traffic,
+        terms,
+      } = req.body;
 
-      const result = await usersCollection.insertOne(user);
+      try {
 
-      res.send(result)
+        const maxPublisherIdUser = await usersCollection
+          .find()
+          .sort({ publisherId: -1 })
+          .limit(1)
+          .toArray();
+
+
+        const nextPublisherId =
+          maxPublisherIdUser.length > 0 ? parseInt(maxPublisherIdUser[0].publisherId, 10) + 1 : 1;
+
+
+        const user = {
+          firstName,
+          lastName,
+          email,
+          image,
+          uid,
+          address,
+          city,
+          country: country.value,
+          state,
+          zip,
+          skype,
+          traffic,
+          terms,
+          publisherId: nextPublisherId,
+          role: role || "user",
+          activeStatus: activeStatus || "pending",
+          createdAt: new Date(),
+        };
+
+
+        const result = await usersCollection.insertOne(user);
+
+        res.send(result);
+      } catch (error) {
+        console.error("Error creating user:", error);
+        res.status(500).send({ error: "Failed to create user" });
+      }
     });
 
     // Get Role by Email (or Authentication Identifier)
@@ -68,6 +135,57 @@ async function run() {
       }
       res.status(404).send({ error: "User not found" });
     });
+
+    // Update User Role
+    app.patch("/users/role/:id", async (req, res) => {
+      const { id } = req.params;
+      const { role } = req.body;
+
+      try {
+        const result = await usersCollection.updateOne(
+          { _id: new ObjectId(id) },
+          { $set: { role } }
+        );
+
+        if (result.modifiedCount === 1) {
+          res.send({ success: true, message: "Role updated successfully" });
+        } else {
+          res.status(404).send({ error: "User not found or role not changed" });
+        }
+      } catch (error) {
+        console.error("Error updating role:", error);
+        res.status(500).send({ error: "Failed to update role" });
+      }
+    });
+
+    // update account status
+
+    app.patch("/users/activeStatus/:id", async (req, res) => {
+      const { id } = req.params;
+      const { activeStatus } = req.body;
+
+      const validStatuses = ['pending', 'approved', 'banned'];  // Allowed statuses
+      if (!validStatuses.includes(activeStatus)) {
+        return res.status(400).send({ error: "Invalid status" });
+      }
+
+      const result = await usersCollection.updateOne(
+        { _id: new ObjectId(id) },
+        { $set: { activeStatus } }
+      );
+
+      if (result.modifiedCount === 1) {
+        return res.send({ success: true, message: "Status updated successfully" });
+      } else {
+        return res.status(404).send({ error: "User not found or status not changed" });
+      }
+    });
+
+
+
+
+
+
 
 
 
