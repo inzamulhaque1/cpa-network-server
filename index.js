@@ -41,6 +41,7 @@ async function run() {
     // await client.connect();
 
     const usersCollection = client.db("CpaNetwork").collection("users")
+    const offersCollection = client.db("CpaNetwork").collection("offers");
 
     // ! =================  USER  ================= !//
 
@@ -51,15 +52,15 @@ async function run() {
     })
 
     // Backend: Get User by Email
-app.get('/users/email/:email', async (req, res) => {
-  const { email } = req.params;
-  const user = await usersCollection.findOne({ email });
+    app.get('/users/email/:email', async (req, res) => {
+      const { email } = req.params;
+      const user = await usersCollection.findOne({ email });
 
-  if (user) {
-      return res.send(user);
-  }
-  res.status(404).send({ error: "User not found" });
-});
+      if (user) {
+        return res.send(user);
+      }
+      res.status(404).send({ error: "User not found" });
+    });
 
     // Register User
 
@@ -137,27 +138,27 @@ app.get('/users/email/:email', async (req, res) => {
     });
 
     // Update User Role
-// Update User Role by ID
-app.patch("/users/role/:id", async (req, res) => {
-  const { id } = req.params;
-  const { role } = req.body;
+    // Update User Role by ID
+    app.patch("/users/role/:id", async (req, res) => {
+      const { id } = req.params;
+      const { role } = req.body;
 
-  const validRoles = ['admin', 'manager', 'publisher', 'user']; // Allowed roles
-  if (!validRoles.includes(role)) {
-    return res.status(400).send({ error: "Invalid role" });
-  }
+      const validRoles = ['admin', 'manager', 'publisher', 'user']; // Allowed roles
+      if (!validRoles.includes(role)) {
+        return res.status(400).send({ error: "Invalid role" });
+      }
 
-  const result = await usersCollection.updateOne(
-    { _id: new ObjectId(id) },
-    { $set: { role } }
-  );
+      const result = await usersCollection.updateOne(
+        { _id: new ObjectId(id) },
+        { $set: { role } }
+      );
 
-  if (result.modifiedCount === 1) {
-    return res.send({ success: true, message: "Role updated successfully" });
-  }
+      if (result.modifiedCount === 1) {
+        return res.send({ success: true, message: "Role updated successfully" });
+      }
 
-  return res.status(404).send({ error: "User not found or role not changed" });
-});
+      return res.status(404).send({ error: "User not found or role not changed" });
+    });
 
 
     // update account status
@@ -181,6 +182,26 @@ app.patch("/users/role/:id", async (req, res) => {
       } else {
         return res.status(404).send({ error: "User not found or status not changed" });
       }
+    });
+
+    // ! =================  OFFERS  ================= !//
+
+
+    // Save Offer Data
+    app.post("/offers", async (req, res) => {
+      console.log(req.body); // Check if `offerImage` exists
+      const { offerImage, ...otherData } = req.body;
+      const offer = { ...otherData, offerImage, createdAt: new Date() };
+      const result = await offersCollection.insertOne(offer);
+      res.send(result);
+    });
+    
+
+    // Get All Offers
+    app.get("/offers", async (req, res) => {
+
+      const offers = await offersCollection.find({}).toArray();
+      res.send(offers);
     });
 
 
